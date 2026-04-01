@@ -6,7 +6,6 @@ workflows:
     environment:
       flutter: stable
       java: 17
-      android-sdk: 34
     artifacts:
       - build/app/outputs/flutter-apk/*.apk
     scripts:
@@ -16,7 +15,6 @@ workflows:
       - name: Build Universal APK (Release)
         script: |
           flutter build apk --release
-          # Rename APK to universal
           cd build/app/outputs/flutter-apk
           if [ -f "app-release.apk" ]; then
             mv "app-release.apk" "reddit_reader_release.apk"
