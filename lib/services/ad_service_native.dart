@@ -10,9 +10,9 @@ class AdService {
   static AdService? _instance;
   late StartAppSdk _startAppSdk;
 
-  StartAppBanner? _bannerAd;
-  StartAppInterstitial? _interstitialAd;
-  StartAppRewardedVideo? _rewardedVideoAd;
+  StartAppBannerAd? _bannerAd;
+  StartAppInterstitialAd? _interstitialAd;
+  StartAppRewardedVideoAd? _rewardedVideoAd;
 
   int _postsLoadedCount = 0;
   int _rewardedVideoRedemptionCount = 0;
@@ -45,9 +45,9 @@ class AdService {
     _checkAndResetDailyCount();
 
     try {
-      // Initialize StartApp SDK with App ID 202746890
+      // Initialize StartApp SDK
       _startAppSdk = StartAppSdk();
-      await _startAppSdk.init(appId: '202746890');
+      await _startAppSdk.initSdk();
       debugPrint('AdService: StartApp SDK initialized successfully');
 
       // Preload ads
