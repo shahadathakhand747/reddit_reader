@@ -1,0 +1,52 @@
+name: reddit_reader
+description: "A production-grade Reddit reader app with dark theme, AI personalization, and StartApp ads."
+publish_to: 'none'
+version: 1.0.0+1
+
+environment:
+  sdk: ^3.11.3
+
+dependencies:
+  flutter:
+    sdk: flutter
+
+  # State Management
+  provider: ^6.1.2
+
+  # HTTP Client
+  http: ^1.2.2
+
+  # Local Storage
+  shared_preferences: ^2.3.3
+
+  # Image Loading & Caching
+  cached_network_image: ^3.4.1
+
+  # URL Launcher
+  url_launcher: ^6.3.1
+
+  # Internationalization
+  intl: ^0.20.2
+
+  # Shimmer Effect for Loading States
+  shimmer: ^3.0.0
+
+  # Platform Detection
+  platform: ^3.1.6
+
+  # Icons
+  cupertino_icons: ^1.0.8
+
+  # StartApp Ads SDK (Android only)
+  startapp_sdk: ^1.0.1
+
+dev_dependencies:
+  flutter_test:
+    sdk: flutter
+  flutter_lints: ^6.0.0
+
+flutter:
+  uses-material-design: true
+
+  assets:
+    - assets/images/
