@@ -2,7 +2,6 @@ workflows:
   android-universal:
     name: Android Universal APK
     max_build_duration: 60
-    instance_type: linux
     environment:
       flutter: stable
       java: 17
