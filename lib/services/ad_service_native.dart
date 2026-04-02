@@ -59,10 +59,7 @@ class AdService {
   Future<void> loadBannerAd() async {
     if (!isAndroid) return;
     try {
-      _bannerAd = await _startAppSdk.loadBannerAd(
-        StartAppBannerType.BANNER,
-        prefs: const StartAppAdPreferences(adTag: 'banner'),
-      );
+      _bannerAd = await _startAppSdk.loadBannerAd(StartAppBannerType.BANNER);
       debugPrint('AdService: Banner ad loaded');
     } catch (e) {
       debugPrint('AdService: Banner load error: $e');
@@ -73,7 +70,6 @@ class AdService {
     if (!isAndroid) return;
     try {
       _interstitialAd = await _startAppSdk.loadInterstitialAd(
-        prefs: const StartAppAdPreferences(adTag: 'interstitial'),
         onAdHidden: () {
           debugPrint('AdService: Interstitial hidden');
           _interstitialAd?.dispose();
@@ -90,15 +86,14 @@ class AdService {
     if (!isAndroid) return;
     try {
       _rewardedVideoAd = await _startAppSdk.loadRewardedVideoAd(
-        prefs: const StartAppAdPreferences(adTag: 'rewarded'),
-        onVideoCompleted: () {
-          debugPrint('AdService: Rewarded video completed');
-          _onRewardedVideoCompleted();
-        },
         onAdHidden: () {
           debugPrint('AdService: Rewarded video hidden');
           _rewardedVideoAd?.dispose();
           _rewardedVideoAd = null;
+        },
+        onVideoCompleted: () {
+          debugPrint('AdService: Rewarded video completed');
+          _onRewardedVideoCompleted();
         },
       );
       debugPrint('AdService: Rewarded video ad loaded');
@@ -112,11 +107,12 @@ class AdService {
 
     HapticFeedback.mediumImpact();
 
-    try {
-      _interstitialAd!.show();
-    } catch (e) {
-      debugPrint('AdService: Interstitial show error: $e');
-    }
+    _interstitialAd!.show().then((shown) {
+      if (shown) {
+        _interstitialAd = null;
+        loadInterstitialAd();
+      }
+    });
   }
 
   Future<bool> showRewardedVideoAd() async {
@@ -135,17 +131,10 @@ class AdService {
 
     HapticFeedback.heavyImpact();
 
-    try {
-      final result = await _rewardedVideoAd!.show();
-      _rewardedVideoAd = null;
-      if (result) {
-        await loadRewardedVideoAd();
-      }
-      return result;
-    } catch (e) {
-      debugPrint('AdService: Rewarded video show error: $e');
-      return false;
-    }
+    final result = await _rewardedVideoAd!.show().then((shown) => shown ?? false);
+    _rewardedVideoAd = null;
+    loadRewardedVideoAd();
+    return result;
   }
 
   Future<void> _onRewardedVideoCompleted() async {
