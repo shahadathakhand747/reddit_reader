@@ -46,8 +46,7 @@ class AdService {
 
     try {
       _startAppSdk = StartAppSdk();
-      // Enable test ads - comment out for production
-      _startAppSdk.setTestAdsEnabled(true);
+      // Real ads - test mode disabled
       debugPrint('AdService: StartApp SDK initialized successfully');
     } catch (e) {
       debugPrint('AdService: StartApp init error: $e');
