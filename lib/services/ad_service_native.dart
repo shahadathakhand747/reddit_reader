@@ -2,7 +2,7 @@ import 'package:flutter/foundation.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
 import 'package:shared_preferences/shared_preferences.dart';
-import 'package:startapp_sdk/startapp_sdk.dart';
+import 'package:startapp_sdk/startapp.dart';
 
 /// Android implementation of AdService with real StartApp SDK integration
 /// App ID: 202746890
