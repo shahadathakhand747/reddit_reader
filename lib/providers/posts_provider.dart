@@ -115,7 +115,7 @@ class PostsProvider extends ChangeNotifier {
 
         // Trigger interstitial ad every 5 posts
         if (_adService.shouldShowInterstitial()) {
-          await _adService.showInterstitialAd();
+          _adService.showInterstitialAd();
         }
       }
     } else {

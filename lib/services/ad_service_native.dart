@@ -113,9 +113,7 @@ class AdService {
     HapticFeedback.mediumImpact();
 
     try {
-      _interstitialAd!.show().onError((error, stackTrace) {
-        debugPrint('AdService: Interstitial show error: $error');
-      });
+      _interstitialAd!.show();
     } catch (e) {
       debugPrint('AdService: Interstitial show error: $e');
     }
