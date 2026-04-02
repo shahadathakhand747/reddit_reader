@@ -45,13 +45,10 @@ class AdService {
     _checkAndResetDailyCount();
 
     try {
-      // Initialize StartApp SDK
       _startAppSdk = StartAppSdk();
-      await _startAppSdk.initSdk();
+      // Enable test ads - comment out for production
+      _startAppSdk.setTestAdsEnabled(true);
       debugPrint('AdService: StartApp SDK initialized successfully');
-
-      // Preload ads
-      await _preloadAds();
     } catch (e) {
       debugPrint('AdService: StartApp init error: $e');
     }
@@ -59,38 +56,13 @@ class AdService {
     _isInitialized = true;
   }
 
-  Future<void> _preloadAds() async {
-    try {
-      // Preload banner
-      _startAppSdk.loadBannerAd(StartAppBannerType.BANNER).then((banner) {
-        _bannerAd = banner;
-        debugPrint('AdService: Banner ad loaded');
-      });
-
-      // Preload interstitial
-      _startAppSdk.loadInterstitialAd().then((interstitial) {
-        _interstitialAd = interstitial;
-        debugPrint('AdService: Interstitial ad loaded');
-      });
-
-      // Preload rewarded video
-      _startAppSdk.loadRewardedVideoAd(
-        onVideoCompleted: () {
-          debugPrint('AdService: Rewarded video completed');
-        },
-      ).then((rewarded) {
-        _rewardedVideoAd = rewarded;
-        debugPrint('AdService: Rewarded video ad loaded');
-      });
-    } catch (e) {
-      debugPrint('AdService: Preload error: $e');
-    }
-  }
-
   Future<void> loadBannerAd() async {
     if (!isAndroid) return;
     try {
-      _bannerAd = await _startAppSdk.loadBannerAd(StartAppBannerType.BANNER);
+      _bannerAd = await _startAppSdk.loadBannerAd(
+        StartAppBannerType.BANNER,
+        prefs: const StartAppAdPreferences(adTag: 'banner'),
+      );
       debugPrint('AdService: Banner ad loaded');
     } catch (e) {
       debugPrint('AdService: Banner load error: $e');
@@ -100,7 +72,14 @@ class AdService {
   Future<void> loadInterstitialAd() async {
     if (!isAndroid) return;
     try {
-      _interstitialAd = await _startAppSdk.loadInterstitialAd();
+      _interstitialAd = await _startAppSdk.loadInterstitialAd(
+        prefs: const StartAppAdPreferences(adTag: 'interstitial'),
+        onAdHidden: () {
+          debugPrint('AdService: Interstitial hidden');
+          _interstitialAd?.dispose();
+          _interstitialAd = null;
+        },
+      );
       debugPrint('AdService: Interstitial ad loaded');
     } catch (e) {
       debugPrint('AdService: Interstitial load error: $e');
@@ -111,8 +90,15 @@ class AdService {
     if (!isAndroid) return;
     try {
       _rewardedVideoAd = await _startAppSdk.loadRewardedVideoAd(
+        prefs: const StartAppAdPreferences(adTag: 'rewarded'),
         onVideoCompleted: () {
+          debugPrint('AdService: Rewarded video completed');
           _onRewardedVideoCompleted();
+        },
+        onAdHidden: () {
+          debugPrint('AdService: Rewarded video hidden');
+          _rewardedVideoAd?.dispose();
+          _rewardedVideoAd = null;
         },
       );
       debugPrint('AdService: Rewarded video ad loaded');
@@ -121,52 +107,17 @@ class AdService {
     }
   }
 
-  Future<void> showBannerAd() async {
-    if (!isAndroid || _bannerAd == null) return;
-    try {
-      _bannerAd!.show();
-      debugPrint('AdService: Banner ad shown');
-    } catch (e) {
-      debugPrint('AdService: Banner show error: $e');
-    }
-  }
-
-  void hideBannerAd() {
-    if (!isAndroid || _bannerAd == null) return;
-    try {
-      _bannerAd!.close();
-      _bannerAd = null;
-    } catch (e) {
-      debugPrint('AdService: Banner hide error: $e');
-    }
-  }
-
-  Future<void> showInterstitialAd() async {
-    if (!isAndroid) return;
+  void showInterstitialAd() {
+    if (!isAndroid || _interstitialAd == null) return;
 
     HapticFeedback.mediumImpact();
 
     try {
-      if (_interstitialAd != null) {
-        _interstitialAd!.show();
-        _interstitialAd = null;
-        debugPrint('AdService: Interstitial ad shown');
-        // Reload for next time
-        await loadInterstitialAd();
-      } else {
-        // Try loading a new one
-        await loadInterstitialAd();
-        await Future.delayed(const Duration(milliseconds: 500));
-        if (_interstitialAd != null) {
-          _interstitialAd!.show();
-          _interstitialAd = null;
-          await loadInterstitialAd();
-        }
-      }
+      _interstitialAd!.show().onError((error, stackTrace) {
+        debugPrint('AdService: Interstitial show error: $error');
+      });
     } catch (e) {
       debugPrint('AdService: Interstitial show error: $e');
-      // Try to reload
-      await loadInterstitialAd();
     }
   }
 
@@ -179,36 +130,24 @@ class AdService {
       return false;
     }
 
+    if (_rewardedVideoAd == null) {
+      debugPrint('AdService: Rewarded video not loaded');
+      return false;
+    }
+
     HapticFeedback.heavyImpact();
 
     try {
-      if (_rewardedVideoAd != null) {
-        final completed = await _rewardedVideoAd!.show();
-        _rewardedVideoAd = null;
-        if (completed) {
-          await _onRewardedVideoCompleted();
-        }
+      final result = await _rewardedVideoAd!.show();
+      _rewardedVideoAd = null;
+      if (result) {
         await loadRewardedVideoAd();
-        return completed;
-      } else {
-        // Try loading a new one
-        await loadRewardedVideoAd();
-        await Future.delayed(const Duration(milliseconds: 500));
-        if (_rewardedVideoAd != null) {
-          final completed = await _rewardedVideoAd!.show();
-          _rewardedVideoAd = null;
-          if (completed) {
-            await _onRewardedVideoCompleted();
-          }
-          await loadRewardedVideoAd();
-          return completed;
-        }
       }
+      return result;
     } catch (e) {
       debugPrint('AdService: Rewarded video show error: $e');
-      await loadRewardedVideoAd();
+      return false;
     }
-    return false;
   }
 
   Future<void> _onRewardedVideoCompleted() async {
@@ -221,7 +160,11 @@ class AdService {
     _postsLoadedCount++;
     if (shouldShowInterstitial()) {
       debugPrint('AdService: Triggering interstitial at $_postsLoadedCount posts');
-      showInterstitialAd();
+      if (_interstitialAd == null) {
+        loadInterstitialAd();
+      } else {
+        showInterstitialAd();
+      }
     }
   }
 
@@ -268,7 +211,9 @@ class AdService {
   }
 
   void dispose() {
-    hideBannerAd();
+    _bannerAd?.dispose();
+    _interstitialAd?.dispose();
+    _rewardedVideoAd?.dispose();
     _bannerAd = null;
     _interstitialAd = null;
     _rewardedVideoAd = null;
@@ -279,39 +224,87 @@ class AdService {
 /// Banner ad widget for Android with StartApp
 class AdBannerWidget extends StatefulWidget {
   final double height;
-  const AdBannerWidget({super.key, this.height = 50});
+  const AdBannerWidget({super.key, this.height = 60});
 
   @override
   State<AdBannerWidget> createState() => _AdBannerWidgetState();
 }
 
 class _AdBannerWidgetState extends State<AdBannerWidget> {
+  StartAppBannerAd? _bannerAd;
   bool _isLoading = true;
 
   @override
   void initState() {
     super.initState();
-    _initBanner();
+    _loadBanner();
   }
 
-  Future<void> _initBanner() async {
-    await AdService.instance.loadBannerAd();
-    if (mounted) setState(() => _isLoading = false);
-    await AdService.instance.showBannerAd();
+  Future<void> _loadBanner() async {
+    try {
+      _bannerAd = await AdService.instance._startAppSdk.loadBannerAd(
+        StartAppBannerType.BANNER,
+        prefs: const StartAppAdPreferences(adTag: 'banner_widget'),
+      );
+      if (mounted) {
+        setState(() => _isLoading = false);
+      }
+    } catch (e) {
+      debugPrint('AdService: Banner load error: $e');
+      if (mounted) {
+        setState(() => _isLoading = false);
+      }
+    }
+  }
+
+  @override
+  void dispose() {
+    _bannerAd?.dispose();
+    super.dispose();
   }
 
   @override
   Widget build(BuildContext context) {
+    if (_isLoading) {
+      return Container(
+        height: widget.height,
+        width: double.infinity,
+        decoration: BoxDecoration(
+          color: const Color(0xFF1A1A1A),
+          border: Border.all(color: const Color(0xFF333333), width: 1),
+        ),
+        child: const Center(
+          child: SizedBox(
+            width: 24,
+            height: 24,
+            child: CircularProgressIndicator(
+              strokeWidth: 2,
+              color: Color(0xFFFF4500),
+            ),
+          ),
+        ),
+      );
+    }
+
+    if (_bannerAd == null) {
+      return Container(
+        height: widget.height,
+        width: double.infinity,
+        decoration: BoxDecoration(
+          color: const Color(0xFF1A1A1A),
+          border: Border.all(color: const Color(0xFF333333), width: 1),
+        ),
+        child: const Center(
+          child: Icon(Icons.ad_units, color: Color(0xFFFF4500), size: 24),
+        ),
+      );
+    }
+
     return Container(
       height: widget.height,
       width: double.infinity,
-      decoration: BoxDecoration(
-        color: const Color(0xFF1A1A1A),
-        border: Border.all(color: const Color(0xFF333333), width: 1),
-      ),
-      child: _isLoading
-          ? const Center(child: CircularProgressIndicator(strokeWidth: 2, color: Color(0xFFFF4500)))
-          : const Center(child: Icon(Icons.ad_units, color: Color(0xFFFF4500), size: 24)),
+      color: const Color(0xFF1A1A1A),
+      child: StartAppBanner(_bannerAd!),
     );
   }
 }
@@ -320,6 +313,7 @@ class _AdBannerWidgetState extends State<AdBannerWidget> {
 class RewardedVideoButton extends StatefulWidget {
   final VoidCallback? onRewardEarned;
   const RewardedVideoButton({super.key, this.onRewardEarned});
+
   @override
   State<RewardedVideoButton> createState() => _RewardedVideoButtonState();
 }
@@ -332,22 +326,39 @@ class _RewardedVideoButtonState extends State<RewardedVideoButton> {
   Future<void> _onTap() async {
     if (_isLoading) return;
     if (_remaining <= 0) {
-      showDialog(context: context, builder: (ctx) => AlertDialog(
-        backgroundColor: const Color(0xFF1A1A1A),
-        title: const Text('Daily Limit Reached', style: TextStyle(color: Color(0xFFFF4500))),
-        content: const Text('You\'ve already redeemed your daily limit of 6 rewards. Come back tomorrow!', style: TextStyle(color: Color(0xFFCCCCCC))),
-        actions: [TextButton(onPressed: () => Navigator.pop(ctx), child: const Text('OK'))],
-      ));
+      showDialog(
+        context: context,
+        builder: (ctx) => AlertDialog(
+          backgroundColor: const Color(0xFF1A1A1A),
+          title: const Text('Daily Limit Reached',
+              style: TextStyle(color: Color(0xFFFF4500))),
+          content: const Text(
+              'You\'ve already redeemed your daily limit of 6 rewards. Come back tomorrow!',
+              style: TextStyle(color: Color(0xFFCCCCCC))),
+          actions: [
+            TextButton(
+                onPressed: () => Navigator.pop(ctx),
+                child: const Text('OK'))
+          ],
+        ),
+      );
       return;
     }
+
     setState(() => _isLoading = true);
+
+    // Load rewarded video first
+    await AdService.instance.loadRewardedVideoAd();
     final success = await AdService.instance.showRewardedVideoAd();
+
     if (mounted) {
       setState(() {
         _isLoading = false;
         _showSuccess = success;
       });
-      if (success && widget.onRewardEarned != null) widget.onRewardEarned!();
+      if (success && widget.onRewardEarned != null) {
+        widget.onRewardEarned!();
+      }
       if (success) {
         await Future.delayed(const Duration(seconds: 2));
         if (mounted) setState(() => _showSuccess = false);
@@ -365,26 +376,54 @@ class _RewardedVideoButtonState extends State<RewardedVideoButton> {
         child: Container(
           padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 8),
           decoration: BoxDecoration(
-            gradient: const LinearGradient(colors: [Color(0xFFFF4500), Color(0xFFFF6B35)], begin: Alignment.topLeft, end: Alignment.bottomRight),
+            gradient: const LinearGradient(
+              colors: [Color(0xFFFF4500), Color(0xFFFF6B35)],
+              begin: Alignment.topLeft,
+              end: Alignment.bottomRight,
+            ),
             borderRadius: BorderRadius.circular(8),
-            boxShadow: [BoxShadow(color: const Color(0xFFFF4500).withValues(alpha: 0.3), blurRadius: 8, offset: const Offset(0, 2))],
+            boxShadow: [
+              BoxShadow(
+                color: const Color(0xFFFF4500).withValues(alpha: 0.3),
+                blurRadius: 8,
+                offset: const Offset(0, 2),
+              ),
+            ],
           ),
           child: Row(
             mainAxisSize: MainAxisSize.min,
             children: [
               if (_isLoading)
-                const SizedBox(width: 16, height: 16, child: CircularProgressIndicator(strokeWidth: 2, color: Colors.white))
+                const SizedBox(
+                    width: 16,
+                    height: 16,
+                    child: CircularProgressIndicator(
+                      strokeWidth: 2,
+                      color: Colors.white,
+                    ))
               else if (_showSuccess)
                 const Icon(Icons.check_circle, color: Colors.white, size: 18)
               else
                 const Icon(Icons.play_circle_filled, color: Colors.white, size: 18),
               const SizedBox(width: 6),
-              const Text('REDEEM', style: TextStyle(color: Colors.white, fontSize: 12, fontWeight: FontWeight.bold, letterSpacing: 0.5)),
+              const Text('REDEEM',
+                  style: TextStyle(
+                      color: Colors.white,
+                      fontSize: 12,
+                      fontWeight: FontWeight.bold,
+                      letterSpacing: 0.5)),
               const SizedBox(width: 4),
               Container(
                 padding: const EdgeInsets.symmetric(horizontal: 6, vertical: 2),
-                decoration: BoxDecoration(color: Colors.white.withValues(alpha: 0.2), borderRadius: BorderRadius.circular(4)),
-                child: Text('$_remaining', style: const TextStyle(color: Colors.white, fontSize: 10, fontWeight: FontWeight.bold)),
+                decoration: BoxDecoration(
+                  color: Colors.white.withValues(alpha: 0.2),
+                  borderRadius: BorderRadius.circular(4),
+                ),
+                child: Text('$_remaining',
+                    style: const TextStyle(
+                        color: Colors.white,
+                        fontSize: 10,
+                        fontWeight: FontWeight.bold)),
               ),
             ],
           ),
