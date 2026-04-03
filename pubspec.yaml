@@ -40,6 +40,10 @@ dependencies:
   # StartApp Ads SDK (Android only)
   startapp_sdk: ^1.0.1
 
+  # Video Player for inline video playback
+  video_player: ^2.9.2
+  chewie: ^1.8.5
+
 dev_dependencies:
   flutter_test:
     sdk: flutter

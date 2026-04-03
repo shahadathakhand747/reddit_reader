@@ -6,6 +6,7 @@ import '../providers/posts_provider.dart';
 import '../models/post_model.dart';
 import '../constants/app_constants.dart';
 import '../widgets/empty_state.dart';
+import '../widgets/video_player_widget.dart';
 import '../services/ad_service.dart';
 
 /// Screen for displaying full post details
@@ -159,8 +160,29 @@ class _PostDetailScreenState extends State<PostDetailScreen>
                         ),
                       ],
 
-                      // Image preview
-                      if (post.displayImage != null) ...[
+                      // Video content - play inline with audio
+                      if (post.mediaType == MediaType.video && post.playableVideoUrl != null) ...[
+                        const SizedBox(height: AppDimensions.spacing),
+                        Padding(
+                          padding: const EdgeInsets.symmetric(
+                            horizontal: AppDimensions.spacing,
+                          ),
+                          child: ClipRRect(
+                            borderRadius: BorderRadius.circular(
+                              AppDimensions.cardBorderRadius,
+                            ),
+                            child: VideoPlayerWidget(
+                              videoUrl: post.playableVideoUrl!,
+                              thumbnailUrl: post.displayImage,
+                              autoPlay: false,
+                              showControls: true,
+                            ),
+                          ),
+                        ),
+                      ]
+
+                      // Image preview (only for non-video media)
+                      else if (post.displayImage != null) ...[
                         const SizedBox(height: AppDimensions.spacing),
                         Padding(
                           padding: const EdgeInsets.symmetric(

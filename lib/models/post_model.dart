@@ -71,16 +71,46 @@ class Post {
     String? audioUrl;
     List<String> galleryImages = [];
 
-    // Check for video content
-    if (data['is_video'] == true || data['reddit_video'] != null) {
+    // Check for video content (Reddit API structure)
+    // Video data can be in either 'reddit_video' or 'secure_media.reddit_video'
+    Map<String, dynamic>? videoData;
+
+    // First check direct reddit_video field (older API)
+    if (data['reddit_video'] != null) {
+      videoData = data['reddit_video'] as Map<String, dynamic>?;
+    }
+
+    // Then check secure_media.reddit_video (newer API structure)
+    if (videoData == null && data['secure_media'] != null) {
+      final secureMedia = data['secure_media'] as Map<String, dynamic>?;
+      if (secureMedia != null && secureMedia['reddit_video'] != null) {
+        videoData = secureMedia['reddit_video'] as Map<String, dynamic>?;
+      }
+    }
+
+    if (data['is_video'] == true || videoData != null) {
       mediaType = MediaType.video;
-      final videoData = data['reddit_video'] as Map<String, dynamic>?;
       if (videoData != null) {
+        // Try fallback_url first (MP4 with embedded audio - best for inline playback)
         videoUrl = videoData['fallback_url'] as String?;
+
+        // If no fallback_url, try hls_url (HLS stream with audio)
+        videoUrl ??= videoData['hls_url'] as String?;
+
+        // If no fallback or HLS, try DASH url
+        videoUrl ??= videoData['dash_url'] as String?;
+
         videoDuration = videoData['duration'] as int?;
-        // Try to extract dash url for quality selection
+
+        // Store dash_url for quality selection if available
         final dashUrl = videoData['dash_url'] as String?;
         if (dashUrl != null) videoFallbackUrl = dashUrl;
+
+        // Also check for HLS URL
+        final hlsUrl = videoData['hls_url'] as String?;
+        if (hlsUrl != null && videoFallbackUrl == null) {
+          videoFallbackUrl = hlsUrl;
+        }
       }
     }
 
@@ -273,6 +303,15 @@ class Post {
 
   /// Check if post has video content
   bool get hasVideo => videoUrl != null || mediaType == MediaType.video;
+
+  /// Get the best video URL for playback (with audio)
+  String? get playableVideoUrl {
+    // Prefer fallback_url as it has embedded audio
+    if (videoUrl != null && videoUrl!.contains('v.redd.it')) {
+      return videoUrl;
+    }
+    return videoUrl ?? videoFallbackUrl;
+  }
 
   /// Check if post has gallery
   bool get hasGallery => galleryImages.isNotEmpty || mediaType == MediaType.gallery;
